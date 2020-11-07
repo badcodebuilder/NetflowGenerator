@@ -1,12 +1,14 @@
-.PHONY: all clean
+.PHONY: all prog clean
 
-all: cli srv
+all: prog move
 
-cli: cli.c config.h
-	gcc cli.c -o cli -lpthread -lm
+prog:
+	$(MAKE) -C src
 
-srv: srv.c config.h
-	gcc srv.c -o srv -lpthread
+move:
+	mkdir -p bin/
+	mv -f src/cli bin/
+	mv -f src/srv bin/
 
 clean:
-	rm -f cli srv
+	rm -rf bin/*

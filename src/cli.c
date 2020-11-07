@@ -49,9 +49,9 @@ void* sender(void* arg) {
     struct sockaddr_in srvaddr;
     socklen_t srvaddrLen;
     memset(&srvaddr, 0, sizeof(srvaddr));
-    srvaddr.sin_family      = AF_INET;
+    srvaddr.sin_family  = AF_INET;
     inet_pton(AF_INET, SRV_ADDR, (void*)&srvaddr.sin_addr);
-    srvaddr.sin_port        = htons(SRV_PORT);
+    srvaddr.sin_port    = htons(SRV_PORT);
     srvaddrLen = sizeof(srvaddr);
 
     char buff[BUFF_SIZE]    = "hello, world";
@@ -87,7 +87,7 @@ int control(int mode) {
         double interval = 1e-1;
         while (1) {
             x += interval;
-            controller = (int)(MAX_SENDER_THREAD_CNT * (1 + sin(x)));
+            controller = (int)(MAX_SENDER_THREAD_CNT * (0.5 + sin(x)/2));
             usleep(SEND_INTERVAL);
         }
     } else if (mode == 2) {

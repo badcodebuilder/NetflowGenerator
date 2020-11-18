@@ -11,4 +11,4 @@ move:
 	mv -f src/srv bin/
 
 clean:
-	rm -rf bin/*
+	rm -rf bin/* data.png *.rdb

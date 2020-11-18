@@ -20,12 +20,13 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/udp.h>
+#include <semaphore.h>
 
 #include "config.h"
 
 /********************* Global Variable Definition *********************/
 int count = 0;          // Number of task
-pthread_mutex_t mutex;  // A packet to one thread
+sem_t mutex;            // A packet to one thread
 
 /**
  * @brief 
@@ -40,7 +41,7 @@ void* recver(void* arg) {
     conn = redisConnect(REDIS_SRV_ADDR, REDIS_SRV_PORT);
     
     while (1) {
-        pthread_mutex_lock(&mutex);
+        sem_wait(&mutex);
         clk = clock();
         redisCommand(conn, "rpush packet %ld", clk);
     }
@@ -57,7 +58,7 @@ void* recver(void* arg) {
  * @return int 
  */
 int main(int argc, char* argv[]) {
-    pthread_mutex_init(&mutex, NULL);
+    sem_init(&mutex, 0, 0);
     // TODO: Create UDP server
     int res;
     int sockfd;
@@ -80,9 +81,6 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // It should be locked when not receiving packet
-    pthread_mutex_lock(&mutex);
-
     // Create all recording threads
     pthread_t recvers[MAX_RECVER_THREAD_CNT];
     for (int i = 0; i < MAX_RECVER_THREAD_CNT; ++i) {
@@ -102,7 +100,7 @@ int main(int argc, char* argv[]) {
         lenth = recvfrom(sockfd, buff, BUFF_SIZE, 0, &cliaddr, &cliaddrLen);
         // lenth = recvfrom(sockfd, buff, BUFF_SIZE, 0, NULL, NULL);
         // XXX: Not a good solution, the responsing thread cannot get packet
-        pthread_mutex_unlock(&mutex);
+        sem_post(&mutex);
     }
     return 0;
 }

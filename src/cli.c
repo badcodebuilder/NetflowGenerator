@@ -2,8 +2,8 @@
  * @file cli.c
  * @author BadCodeBuilder
  * @brief 
- * @version 0.1
- * @date 2020-11-03
+ * @version 0.2
+ * @date 2020-11-19
  * 
  */
 #include "pthread.h"
@@ -23,14 +23,41 @@
 
 #include "config.h"
 
+/************************** Macro Definition **************************/
 #define     SINE_STEP       1e-1
 #define     SQUARE_CYCLE    50
 #define     SQUARE_DUTY     5e-1
 
 /********************* Global Variable Definition *********************/
-int myIndex = 0;            // 
+int myIndex = 0;            // y = f(myIndex)
 int mode = 0;               // Wave form mode
 sem_t sendSignal;           // Send signal, use semaphore is more easy
+
+/**
+ * @brief this function is used to control how many packets 
+ * 
+ * @return int 
+ */
+int control() {
+    int ans = 0;
+    switch (mode)
+    {
+    case 1: {
+        double x = myIndex * SINE_STEP;
+        ans = (int)(MAX_SEND_PACKET_PER_SLICE * (0.5 + sin(x)/2));
+        break;
+    }
+    case 2: {
+        myIndex %= SQUARE_CYCLE;
+        ans = myIndex < (int)(SQUARE_CYCLE*SQUARE_DUTY) ? 0 : MAX_SEND_PACKET_PER_SLICE;
+        break;
+    }
+    default:
+        break;
+    }
+    ++myIndex;
+    return ans;
+}
 
 /**
  * @brief Thread function, if the controller is greater than threshold, 
@@ -43,7 +70,7 @@ sem_t sendSignal;           // Send signal, use semaphore is more easy
  * @return void* 
  */
 void* sender(void* arg) {
-    // TODO: Create socket
+    // Create socket
     int sockfd;
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd < 0) {
@@ -85,6 +112,7 @@ void* sender(void* arg) {
 void* tick(void* arg) {
     while (1) {
         int ctrl = control();
+        printf("%d\n", ctrl);
         for (int i = 0; i < MAX_SEND_PACKET_PER_SLICE; ++i) {
             if (ctrl > 0) {
                 sem_post(&sendSignal);
@@ -96,31 +124,6 @@ void* tick(void* arg) {
     return NULL;
 }
 
-/**
- * @brief 
- * 
- * @return int 
- */
-int control() {
-    int ans = 0;
-    switch (mode)
-    {
-    case 1: {
-        double x = myIndex * SINE_STEP;
-        ans = (int)(MAX_SEND_PACKET_PER_SLICE * (0.5 + sin(x)/2));
-        break;
-    }
-    case 2: {
-        myIndex %= SQUARE_CYCLE;
-        ans = myIndex < (int)(SQUARE_CYCLE*SQUARE_DUTY) ? 0 : MAX_SEND_PACKET_PER_SLICE;
-        break;
-    }
-    default:
-        break;
-    }
-    ++myIndex;
-    return ans;
-}
 
 /**
  * @brief 
@@ -145,16 +148,18 @@ int main(int argc, char* argv[]) {
     sem_init(&sendSignal, 0, 0);
 
     // Create sender and ticker thread
-    pthread_t sender;
-    pthread_t ticker;
-    if (pthread_create(&sender, NULL, sender, NULL) < 0) {
+    pthread_t mySender;
+    pthread_t myTicker;
+    if (pthread_create(&mySender, NULL, sender, NULL) < 0) {
         printf("Thread-Sender Error: cannot create thread.\n");
         exit(1);
     }
-    if (pthread_create(&ticker, NULL, tick, NULL) < 0) {
+    if (pthread_create(&myTicker, NULL, tick, NULL) < 0) {
         printf("Thread-Tick Error: cannot create thread.\n");
         exit(1);
     }
+
+    while(1);
 
     return 0;
 }

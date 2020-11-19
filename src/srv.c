@@ -3,7 +3,7 @@
  * @author BadCodeBuilder
  * @brief 
  * @version 0.1
- * @date 2020-11-07
+ * @date 2020-11-19
  * 
  */
 
@@ -26,29 +26,6 @@
 
 /********************* Global Variable Definition *********************/
 int count = 0;          // Number of task
-sem_t mutex;            // A packet to one thread
-
-/**
- * @brief 
- * 
- * @param arg 
- * @return void* 
- */
-void* recver(void* arg) {
-    clock_t clk;
-
-    redisContext* conn;
-    conn = redisConnect(REDIS_SRV_ADDR, REDIS_SRV_PORT);
-    
-    while (1) {
-        sem_wait(&mutex);
-        clk = clock();
-        redisCommand(conn, "rpush packet %ld", clk);
-    }
-
-    redisFree(conn);
-    return NULL;
-}
 
 /**
  * @brief 
@@ -58,8 +35,11 @@ void* recver(void* arg) {
  * @return int 
  */
 int main(int argc, char* argv[]) {
-    sem_init(&mutex, 0, 0);
-    // TODO: Create UDP server
+    // Create Redis connection
+    redisContext* conn;
+    conn = redisConnect(REDIS_SRV_ADDR, REDIS_SRV_PORT);
+
+    // Create UDP server
     int res;
     int sockfd;
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -81,26 +61,27 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Create all recording threads
-    pthread_t recvers[MAX_RECVER_THREAD_CNT];
-    for (int i = 0; i < MAX_RECVER_THREAD_CNT; ++i) {
-        res = pthread_create(recvers+i, NULL, recver, NULL);
-        if (res != 0) {
-            printf("Thread%02d error: cannot create thread, errno=%d.\n", i, res);
-            --i;
-        }
-    }
-
     char buff[BUFF_SIZE];
     int lenth;
     struct sockaddr cliaddr;
     socklen_t cliaddrLen;
+    time_t baseSec = 0;
+    struct timeval clk;
+    long myClk;
     while (1) {
-        // TODO: Receive packet, actually I do not care about client address
+        // Receive packet, actually I do not care about client address
         lenth = recvfrom(sockfd, buff, BUFF_SIZE, 0, &cliaddr, &cliaddrLen);
-        // lenth = recvfrom(sockfd, buff, BUFF_SIZE, 0, NULL, NULL);
-        // XXX: Not a good solution, the responsing thread cannot get packet
-        sem_post(&mutex);
+
+        // Get current time, use us is enough
+        gettimeofday(&clk, NULL);
+        if (baseSec == 0) {
+            baseSec = clk.tv_sec;
+        }
+        myClk = (clk.tv_sec-baseSec)*1000000 + clk.tv_usec;
+
+        // Record current time
+        redisCommand(conn, "rpush packet %ld", myClk);
     }
+
     return 0;
 }

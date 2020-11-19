@@ -19,11 +19,18 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/udp.h>
+#include <semaphore.h>
 
 #include "config.h"
 
+#define     SINE_STEP       1e-1
+#define     SQUARE_CYCLE    50
+#define     SQUARE_DUTY     5e-1
+
 /********************* Global Variable Definition *********************/
-int controller = 0;         // Controller
+int myIndex = 0;            // 
+int mode = 0;               // Wave form mode
+sem_t sendSignal;           // Send signal, use semaphore is more easy
 
 /**
  * @brief Thread function, if the controller is greater than threshold, 
@@ -36,13 +43,11 @@ int controller = 0;         // Controller
  * @return void* 
  */
 void* sender(void* arg) {
-    // BUG: The arg is wrong. An independent arg-array is a must.
-    int threshold = *((int*)arg);
     // TODO: Create socket
     int sockfd;
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd < 0) {
-        printf("Thread%02d error: cannot create socket\n", threshold);
+        printf("Thread-Sender error: cannot create socket\n");
         return NULL;
     }
 
@@ -54,11 +59,11 @@ void* sender(void* arg) {
     srvaddr.sin_port    = htons(SRV_PORT);
     srvaddrLen = sizeof(srvaddr);
 
-    char buff[BUFF_SIZE]    = "hello, world";
+    char buff[BUFF_SIZE] = "hello, world";
     
     while (1) {
-        while (controller <= threshold);
-        // TODO: Send packet
+        sem_wait(&sendSignal);
+        // Send packet
         sendto(
             sockfd,
             buff,
@@ -72,47 +77,49 @@ void* sender(void* arg) {
 }
 
 /**
- * @brief Control the global variable: controller, to control all the 
- * threads whether send UDP packages or not. The value of the wave should
- * be related to the number of working thread. And use different mode to
- * make different kinds of wave
+ * @brief 
  * 
- * @param mode 
- * @return int 
+ * @param arg 
+ * @return void* 
  */
-int control(int mode) {
-    if (mode == 1) {
-        // Sine wave
-        double x = 0;
-        double interval = 1e-1;
-        while (1) {
-            x += interval;
-            controller = (int)(MAX_SENDER_THREAD_CNT * (0.5 + sin(x)/2));
-            usleep(SEND_INTERVAL);
-        }
-    } else if (mode == 2) {
-        // Square wave
-        int x = 0;
-        int cycle = 100;
-        int duty = 50;
-        while (1) {
-            x = (x+1) % cycle;
-            controller = x < duty? 0 : MAX_SENDER_THREAD_CNT;
+void* tick(void* arg) {
+    while (1) {
+        int ctrl = control();
+        for (int i = 0; i < MAX_SEND_PACKET_PER_SLICE; ++i) {
+            if (ctrl > 0) {
+                sem_post(&sendSignal);
+                --ctrl;
+            }
             usleep(SEND_INTERVAL);
         }
     }
-    return 0;
+    return NULL;
 }
 
 /**
  * @brief 
  * 
- * @param sig 
+ * @return int 
  */
-void sigHandler(int sig) {
-    if (sig == SIGINT) {
-        // TODO: terminal all thread
+int control() {
+    int ans = 0;
+    switch (mode)
+    {
+    case 1: {
+        double x = myIndex * SINE_STEP;
+        ans = (int)(MAX_SEND_PACKET_PER_SLICE * (0.5 + sin(x)/2));
+        break;
     }
+    case 2: {
+        myIndex %= SQUARE_CYCLE;
+        ans = myIndex < (int)(SQUARE_CYCLE*SQUARE_DUTY) ? 0 : MAX_SEND_PACKET_PER_SLICE;
+        break;
+    }
+    default:
+        break;
+    }
+    ++myIndex;
+    return ans;
 }
 
 /**
@@ -128,29 +135,26 @@ int main(int argc, char* argv[]) {
         printf("Argument Error: too many or few arguments\n");
         exit(1);
     }
-    int mode = atoi(argv[1]);
+    mode = atoi(argv[1]);
     if (mode != 1 && mode != 2) {
         printf("Argument Error: controller must be set as 1 or 2\n");
         exit(1);
     }
 
-    // Create sender threads
-    int threadCnt;
-    pthread_t senders[MAX_SENDER_THREAD_CNT];
-    for (threadCnt = 0; threadCnt < MAX_SENDER_THREAD_CNT; ++threadCnt) {
-        int threshold = threadCnt;
-        int res = pthread_create(
-            senders+threadCnt,
-            NULL,
-            sender,
-            (void*)&threshold
-        );
-        if (res < 0) {
-            printf("Thread main Error: cannot create Thread%02d", threadCnt);
-        }
-    }
+    // Initialize semaphore
+    sem_init(&sendSignal, 0, 0);
 
-    control(mode);
+    // Create sender and ticker thread
+    pthread_t sender;
+    pthread_t ticker;
+    if (pthread_create(&sender, NULL, sender, NULL) < 0) {
+        printf("Thread-Sender Error: cannot create thread.\n");
+        exit(1);
+    }
+    if (pthread_create(&ticker, NULL, tick, NULL) < 0) {
+        printf("Thread-Tick Error: cannot create thread.\n");
+        exit(1);
+    }
 
     return 0;
 }

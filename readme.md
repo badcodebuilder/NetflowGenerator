@@ -4,8 +4,23 @@ This is one of task assigned in *Network programming* lesson. In this task, you 
 
 ## ENV requirment
 
+To compile client and server program, you need:
+
++ build-essential
 + pthread, which means you have to use **UNIX** or **LINUX**(maybe macOS but I cannot afford it)
++ hiredis, officially recommended C API of redis
+
+To run netflow plot script, you need:
+
++ python3, I use **python 3.8.5** to write the script
++ matplotlib, default version
++ redis, default version
+
+And to run the compiled program, you need:
+
 + redis
+
+If you really do not know how to install that, please consult this [document](docs/envinstall.md).
 
 ## How to RUN
 

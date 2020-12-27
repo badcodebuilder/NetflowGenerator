@@ -4,5 +4,5 @@
 #define     REDIS_SRV_PORT              6379
 
 #define     BUFF_SIZE                   4096
-#define     SEND_INTERVAL               100
-#define     MAX_SEND_PACKET_PER_SLICE   100
+#define     SEND_INTERVAL               200
+#define     MAX_SEND_PACKET_PER_SLICE   500

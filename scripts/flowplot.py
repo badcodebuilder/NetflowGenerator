@@ -21,7 +21,7 @@ def main()->int:
         data.append(int(i))
 
     # Count data
-    interval = 100000
+    interval = 300000
     maxTime = max(data)
     print("Max time stamp is: %d"%(maxTime))
     slices = maxTime//interval

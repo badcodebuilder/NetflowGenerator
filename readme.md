@@ -1,37 +1,72 @@
-# Netflow Generator
+# 网络流量发生器
 
-This is one of task assigned in *Network programming* lesson. In this task, you need to create a client and a server. In server, a netflow counter should be run, and after collecting packets sent by client, it should plot the number of those. In client, a netflow generator should be run, and control how much packet it should send. And for more information about how to implement it, please consult this [document](docs/methodology.md).
+该项目是网络编程课程的大作业中的一个题目。目的是通过客户端向服务器发送报文，服务器收到报文并统计每一个时间片中报文的数量，绘制成一个流量图，要求绘制的流量图为指定的波形。
 
-## ENV requirment
+想如果想了解更多该项目是如何实现的，请[看这里](docs/methodology.md)
 
-To compile client and server program, you need:
+## 环境准备
 
-+ build-essential
-+ pthread, which means you have to use **UNIX** or **LINUX**(maybe macOS but I cannot afford it)
-+ hiredis, officially recommended C API of redis
+该项目的客户端和服务器端都是由C实现，绘图脚本由Python实现，数据库使用的是redis，因此需要以下编译以及运行环境
 
-To run netflow plot script, you need:
+编译代码：
 
-+ python3, I use **python 3.8.5** to write the script
-+ matplotlib, default version
-+ redis, default version
++ build-essential: 默认版本即可
++ hiredis: redis的C语言的API，需要去github上面下载并编译安装
++ pthread: 一般Linux自带的，所以Windows就不要用了，或者魔改也行，反正源码用的线程非常简单
 
-And to run the compiled program, you need:
+运行脚本：
 
-+ redis
++ python: 请用python3，作者开发环境用的系统自带的python 3.8.5
++ matplotlib: python的绘图库，默认版本即可，pip安装（你用conda我也管不着）
++ redis: redis的python的API，默认版本即可，pip安装
 
-If you really do not know how to install that, please consult this [document](docs/envinstall.md).
+数据库存储：
 
-## How to RUN
++ redis: 这才是redis真身，去官网下载解压编译安装
 
-1. Please change macro definition <code>SRV_ADDR</code> and <code>SRV_PORT</code> in file <code>config.h</code> to your real server if you need to use client. I am so sorry I do not know how to use autoconf to generate configuration script, maybe that will be added to this repo later.
+如果实在不会安装上述环境，请[看这里](docs/envinstall.md)
 
-2. Run the commands <code>make</code> in shell
+## 如何运行
 
-3. Run <code>srv</code> on server and <code>cli</code> on client, and terminate them if you want.
+运行该项目非常简单，分为以下几步：
 
-4. Run the script to plot the chart
+1. 下载该项目，并切换目录到该项目的根目录下
 
-## Changes to redis
+    ```bash
+    git clone https://github.com/CallMeChinese/NetflowGenerator.git
+    cd NetflowGenerator
+    ```
 
-In <code>redis.conf</code>, line 112, timeout is set as 60, in order to terminal connection automatially after using ctrl-c to close server.
+2. 使用<code>make</code>命令完成编译，二进制文件就在<code>bin/</code>下
+
+    ```bash
+    make
+    ```
+
+3. 按下面的顺序依次在不同的终端运行，即无特殊说明的情况下，每一个命令需要创建一个新的终端来运行
+
+    + 启动redis
+
+        ```bash
+        redis-server config/redis.conf
+        ```
+
+    + 启动服务器
+
+        ```bash
+        ./bin/srv
+        ```
+
+    + 启动客户端
+
+        ```bash
+        ./bin/cli
+        ```
+
+    + 停止客户端（ctrl+c），并执行脚本，该步骤可以不创建新的终端
+
+        ```bash
+        python3 scripts/flowplot.py
+        ```
+
+4. 可以在项目的根目录下找到流量图片<code>data.png</code>（这么做是为了应对无界面服务器，有界面的PC可以直接在python中显示出来）
